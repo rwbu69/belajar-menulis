@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { AppContext } from '../context/AppContext';
 
 const NilaiSayaPage = () => {
@@ -9,6 +10,45 @@ const NilaiSayaPage = () => {
   const [expandedIds, setExpandedIds] = useState({});
   const [visible, setVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('akademis');
+  
+  const [menulisCepatHistory, setMenulisCepatHistory] = useState(() => {
+    const saved = localStorage.getItem('menulisCepat_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const getAchievements = () => {
+    const earned = [];
+    
+    if (history.length > 0 || menulisCepatHistory.length > 0) {
+      earned.push({ id: 'first_step', name: 'Langkah Pertama', icon: '🌟', desc: 'Menyelesaikan 1 latihan menulis.', color: 'from-amber-50 to-amber-100 text-amber-800 border-amber-200' });
+    }
+    
+    if (history.length >= 3) {
+      earned.push({ id: 'consistent', name: 'Konsisten', icon: '📈', desc: 'Menyelesaikan minimal 3 latihan (Akademis/Kreatif).', color: 'from-blue-50 to-indigo-100 text-indigo-800 border-indigo-200' });
+    }
+    
+    const hasFastWpm = menulisCepatHistory.some(session => parseFloat(session.wpm) >= 80);
+    if (hasFastWpm) {
+      earned.push({ id: 'fast', name: 'Si Kilat', icon: '⚡', desc: 'Mencapai > 80 WPM di Menulis Cepat.', color: 'from-orange-50 to-red-100 text-red-800 border-red-200' });
+    }
+    
+    const hasPerfectAccuracy = menulisCepatHistory.some(session => parseFloat(session.accuracy) === 100);
+    if (hasPerfectAccuracy) {
+      earned.push({ id: 'sniper', name: 'Penembak Jitu', icon: '🎯', desc: 'Akurasi 100% di Menulis Cepat.', color: 'from-green-50 to-emerald-100 text-emerald-800 border-emerald-200' });
+    }
+    
+    const isPujangga = history.some(session => {
+      const match = (session.feedback || '').match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?/i);
+      return match && parseInt(match[1]) >= 18;
+    });
+    if (isPujangga) {
+      earned.push({ id: 'pujangga', name: 'Pujangga', icon: '🏆', desc: 'Total Skor ≥ 18 di Akademis/Kreatif.', color: 'from-purple-50 to-fuchsia-100 text-fuchsia-800 border-fuchsia-200' });
+    }
+
+    return earned;
+  };
+
+  const achievements = getAchievements();
 
   // Mount animation trigger
   useEffect(() => {
@@ -159,6 +199,8 @@ const NilaiSayaPage = () => {
   const handleClearHistory = () => {
     if (window.confirm('Apakah Anda yakin ingin menghapus semua riwayat latihan Anda?')) {
       clearHistory();
+      localStorage.removeItem('menulisCepat_history');
+      setMenulisCepatHistory([]);
       toast.success('Semua riwayat latihan telah dihapus.');
     }
   };
@@ -325,12 +367,14 @@ const NilaiSayaPage = () => {
 
   // Set active tab default based on available history
   useEffect(() => {
-    if (history.length > 0) {
+    if (history.length > 0 || menulisCepatHistory.length > 0) {
       if (akademisSessions.length === 0 && kreatifSessions.length > 0) {
         setActiveTab('kreatif');
+      } else if (akademisSessions.length === 0 && kreatifSessions.length === 0 && menulisCepatHistory.length > 0) {
+        setActiveTab('menulisCepat');
       }
     }
-  }, [history, akademisSessions.length, kreatifSessions.length]);
+  }, [history, menulisCepatHistory.length, akademisSessions.length, kreatifSessions.length]);
 
   return (
     <div 
@@ -364,7 +408,7 @@ const NilaiSayaPage = () => {
               Pantau perkembangan dan analisis kompetensi menulis Anda.
             </p>
           </div>
-          {history.length > 0 && (
+          {(history.length > 0 || menulisCepatHistory.length > 0) && (
             <button
               onClick={handleClearHistory}
               className="self-start sm:self-center text-xs font-semibold text-red-600 hover:text-red-800 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-all duration-200"
@@ -379,8 +423,36 @@ const NilaiSayaPage = () => {
           *Catatan: Seluruh nilai dan analisis kompetensi yang tersimpan di halaman ini dikalkulasikan secara otomatis berdasarkan umpan balik model AI (gpt-oss-120b). Evaluasi AI tidak mungkin 100% benar atau akurat secara mutlak. Gunakan data ini secara bijak sebagai bahan pembanding evaluasi diri.
         </div>
 
+        {/* Pencapaian Saya (Gamification) */}
+        {achievements.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 shadow-sm space-y-4 animate-slide-up-fade">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                Pencapaian Saya
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">Lencana ini diberikan berdasarkan riwayat latihan Anda.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {achievements.map(ach => (
+                <div key={ach.id} className={`flex items-start gap-3 p-3.5 rounded-xl border bg-gradient-to-br ${ach.color} shadow-sm`}>
+                  <div className="text-2xl bg-white/60 p-2 rounded-lg shadow-sm border border-white/50 flex-shrink-0">
+                    {ach.icon}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm">{ach.name}</h3>
+                    <p className="text-[10px] mt-0.5 leading-snug opacity-90">{ach.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Grafis Analisis Perkembangan Kompetensi */}
-        {history.length > 0 && (
+        {(history.length > 0 || menulisCepatHistory.length > 0) && (
           <div className="bg-white border border-gray-200 rounded-xl p-6 md:p-8 shadow-sm space-y-6 animate-slide-up-fade">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-150 pb-4 gap-4">
               <div>
@@ -409,6 +481,16 @@ const NilaiSayaPage = () => {
                   }`}
                 >
                   Kreatif ({kreatifSessions.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('menulisCepat')}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${
+                    activeTab === 'menulisCepat' 
+                      ? 'bg-amber-600 text-white shadow-sm' 
+                      : 'text-gray-600 hover:text-amber-600'
+                  }`}
+                >
+                  Menulis Cepat ({menulisCepatHistory.length})
                 </button>
               </div>
             </div>
@@ -472,7 +554,7 @@ const NilaiSayaPage = () => {
                   </div>
                 </div>
               )
-            ) : (
+            ) : activeTab === 'kreatif' ? (
               kreatifSessions.length === 0 ? (
                 <div className="text-center py-6 text-sm text-gray-500">
                   Belum ada riwayat penulisan kreatif yang disimpan. Silakan submit penulisan kreatif untuk melihat grafik.
@@ -530,7 +612,43 @@ const NilaiSayaPage = () => {
                   </div>
                 </div>
               )
-            )}
+            ) : activeTab === 'menulisCepat' ? (
+              menulisCepatHistory.length === 0 ? (
+                <div className="text-center py-6 text-sm text-gray-500">
+                  Belum ada riwayat menulis cepat yang disimpan. Silakan lakukan tes kecepatan mengetik untuk merekam grafik perkembangan.
+                </div>
+              ) : (
+                <div className="space-y-4 pt-2 animate-slide-up-fade">
+                  <div className="w-full h-64 mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={[...menulisCepatHistory].reverse().map((item, idx) => ({ name: item.date, wpm: item.wpm, index: idx + 1 }))} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} domain={['auto', 'auto']} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          contentStyle={{
+                            fontSize: '11px',
+                            borderRadius: '8px',
+                            border: '1px solid #E5E7EB',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            color: '#1E293B'
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="wpm"
+                          name="WPM"
+                          stroke="#D97706"
+                          strokeWidth={2.5}
+                          activeDot={{ r: 6 }}
+                          dot={{ r: 3, fill: '#D97706', strokeWidth: 0 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )
+            ) : null}
           </div>
         )}
 

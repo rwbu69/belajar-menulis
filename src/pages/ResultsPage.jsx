@@ -3,12 +3,59 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AppContext } from '../context/AppContext';
 
+const HighlightedText = ({ text, corrections }) => {
+  if (!corrections || corrections.length === 0) {
+    return <p className="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-wrap">{text}</p>;
+  }
+
+  let elements = [text];
+
+  corrections.forEach((corr, idx) => {
+    const newElements = [];
+    elements.forEach(el => {
+      if (typeof el === 'string') {
+        // Only split if the wrong text is actually in the string
+        if (!el.includes(corr.wrong)) {
+          newElements.push(el);
+          return;
+        }
+        const parts = el.split(corr.wrong);
+        for (let i = 0; i < parts.length; i++) {
+          newElements.push(parts[i]);
+          if (i < parts.length - 1) {
+            newElements.push(
+              <span key={`corr-${idx}-${i}`} className="relative group cursor-help bg-red-100 text-red-900 border-b-2 border-red-500 rounded px-0.5">
+                {corr.wrong}
+                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-max max-w-xs bg-slate-800 text-white text-xs font-bold px-2.5 py-1.5 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                  Saran: {corr.correct}
+                  <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></span>
+                </span>
+              </span>
+            );
+          }
+        }
+      } else {
+        newElements.push(el);
+      }
+    });
+    elements = newElements;
+  });
+
+  return (
+    <div className="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-wrap">
+      {elements.map((el, i) => (
+        <React.Fragment key={i}>{el}</React.Fragment>
+      ))}
+    </div>
+  );
+};
+
 const ResultsPage = () => {
-  const { evaluateWriting, saveToHistory } = useContext(AppContext);
+  const { evaluateWriting, evaluateMenulisCepat, saveToHistory } = useContext(AppContext);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { mode, prompt, text } = location.state || {};
+  const { mode, prompt, text, wpm, cpm, accuracy, consistency, mistypedChars } = location.state || {};
   const [evaluation, setEvaluation] = useState('');
   const [loading, setLoading] = useState(true);
   const [resultsVisible, setResultsVisible] = useState(false);
@@ -29,7 +76,12 @@ const ResultsPage = () => {
     setLoading(true);
     setRateLimitCountdown(0);
     try {
-      const feedback = await evaluateWriting(mode || 'akademis', prompt, text);
+      let feedback;
+      if (mode === 'menulisCepat') {
+        feedback = await evaluateMenulisCepat(wpm, accuracy, consistency, mistypedChars);
+      } else {
+        feedback = await evaluateWriting(mode || 'akademis', prompt, text);
+      }
       setEvaluation(feedback);
     } catch (err) {
       console.error(err);
@@ -40,11 +92,11 @@ const ResultsPage = () => {
       }
       toast.error(err.message || 'Gagal memuat evaluasi AI. Silakan coba kirim ulang.');
       evaluationFetched.current = false;
-      navigate(`/write?mode=${mode || 'akademis'}`);
+      navigate(mode === 'menulisCepat' ? '/menulis-cepat' : `/write?mode=${mode || 'akademis'}`);
     } finally {
       setLoading(false);
     }
-  }, [mode, prompt, text, evaluateWriting, navigate]);
+  }, [mode, prompt, text, wpm, accuracy, consistency, mistypedChars, evaluateWriting, evaluateMenulisCepat, navigate]);
 
   useEffect(() => {
     if (!prompt || !text) return;
@@ -82,10 +134,93 @@ const ResultsPage = () => {
 
   const handleSave = () => {
     if (!prompt || !text || !evaluation) return;
-    saveToHistory(mode || 'akademis', prompt, text, evaluation);
-    toast.success('Latihan Anda berhasil disimpan!');
+    
+    const earnedToasts = [];
+
+    if (mode === 'menulisCepat') {
+      const saved = localStorage.getItem('menulisCepat_history');
+      const hist = saved ? JSON.parse(saved) : [];
+      
+      const savedOtherStr = localStorage.getItem('belajar_menulis_history') || localStorage.getItem('jadi_penulis_history');
+      const histOther = savedOtherStr ? JSON.parse(savedOtherStr) : [];
+
+      if (hist.length === 0 && histOther.length === 0) {
+         earnedToasts.push("🌟 Pencapaian Terbuka: Langkah Pertama!");
+      }
+      
+      const prevHasFast = hist.some(s => parseFloat(s.wpm) >= 80);
+      if (!prevHasFast && parseFloat(wpm) >= 80) earnedToasts.push("⚡ Pencapaian Terbuka: Si Kilat!");
+      
+      const prevHasSniper = hist.some(s => parseFloat(s.accuracy) === 100);
+      if (!prevHasSniper && parseFloat(accuracy) === 100) earnedToasts.push("🎯 Pencapaian Terbuka: Penembak Jitu!");
+
+      const dateStr = new Date().toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      hist.unshift({ date: dateStr, wpm: parseFloat(wpm), accuracy: parseFloat(accuracy) });
+      localStorage.setItem('menulisCepat_history', JSON.stringify(hist));
+      toast.success('Latihan Menulis Cepat Anda berhasil disimpan!');
+    } else {
+      const savedHistoryStr = localStorage.getItem('belajar_menulis_history') || localStorage.getItem('jadi_penulis_history');
+      const hist = savedHistoryStr ? JSON.parse(savedHistoryStr) : [];
+      
+      const savedCepatStr = localStorage.getItem('menulisCepat_history');
+      const histCepat = savedCepatStr ? JSON.parse(savedCepatStr) : [];
+
+      if (hist.length === 0 && histCepat.length === 0) {
+         earnedToasts.push("🌟 Pencapaian Terbuka: Langkah Pertama!");
+      }
+      
+      if (hist.length === 2) { // will become 3
+         earnedToasts.push("📈 Pencapaian Terbuka: Konsisten!");
+      }
+      
+      const match = evaluation.match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?/i);
+      const score = match ? parseInt(match[1]) : 0;
+      
+      const prevPujangga = hist.some(s => {
+         const m = (s.feedback || '').match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?/i);
+         return m && parseInt(m[1]) >= 18;
+      });
+      
+      if (!prevPujangga && score >= 18) {
+         earnedToasts.push("🏆 Pencapaian Terbuka: Pujangga!");
+      }
+
+      saveToHistory(mode || 'akademis', prompt, text, evaluation);
+      toast.success('Latihan Anda berhasil disimpan!');
+    }
+    
+    // Show achievement toasts
+    earnedToasts.forEach((msg, idx) => {
+       setTimeout(() => {
+          toast(msg, {
+            duration: 5000,
+            style: { borderRadius: '10px', background: '#4F46E5', color: '#fff', fontWeight: 'bold', fontSize: '13px' }
+          });
+       }, (idx + 1) * 800);
+    });
+    
     navigate('/nilai');
   };
+
+  const parseCorrections = (feedbackText) => {
+    const corrections = [];
+    if (!feedbackText) return corrections;
+    const lines = feedbackText.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/\[Koreksi\]:\s*"([^"]+)"\s*->\s*"([^"]+)"/i) || line.match(/\[Koreksi\]:\s*'([^']+)'\s*->\s*'([^']+)'/i);
+      if (match) {
+        corrections.push({ wrong: match[1], correct: match[2] });
+      }
+    });
+    return corrections;
+  };
+
+  const corrections = parseCorrections(evaluation);
 
   // Helper to parse double asterisks and hash headers into beautiful React elements
   const renderFeedbackText = (text) => {
@@ -242,11 +377,10 @@ const ResultsPage = () => {
             Belajar Menulis
           </Link>
           <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${
-            mode === 'kreatif' 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-              : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            mode === 'menulisCepat' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+            mode === 'kreatif' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'
           }`}>
-            Mode: {mode === 'kreatif' ? 'Kreatif' : 'Akademis'}
+            Mode: {mode === 'menulisCepat' ? 'Menulis Cepat' : mode === 'kreatif' ? 'Kreatif' : 'Akademis'}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -290,12 +424,34 @@ const ResultsPage = () => {
             {/* Evaluation Metadata Card */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 md:p-6 space-y-4">
               <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Topik</h3>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Topik / Teks Target</h3>
                 <p className="font-serif text-slate-800 text-sm md:text-base leading-relaxed">{prompt}</p>
               </div>
+              
+              {mode === 'menulisCepat' && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200">
+                  <div className="bg-amber-50 p-3 rounded-lg border border-amber-100 text-center">
+                    <div className="text-xl font-bold text-amber-700">{wpm}</div>
+                    <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">WPM</div>
+                  </div>
+                  <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center">
+                    <div className="text-xl font-bold text-emerald-700">{accuracy}%</div>
+                    <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Akurasi</div>
+                  </div>
+                  <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center">
+                    <div className="text-xl font-bold text-indigo-700">{consistency}</div>
+                    <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Deviasi</div>
+                  </div>
+                  <div className="bg-gray-100 p-3 rounded-lg border border-gray-200 text-center">
+                    <div className="text-xl font-bold text-slate-700">{cpm}</div>
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">CPM</div>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t border-gray-200 pt-4">
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Tulisan Anda</h3>
-                <p className="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-wrap">{text}</p>
+                <HighlightedText text={text} corrections={corrections} />
               </div>
             </div>
 
@@ -323,7 +479,7 @@ const ResultsPage = () => {
               }`}
             >
               <button
-                onClick={() => navigate(`/write?mode=${mode || 'akademis'}`)}
+                onClick={() => navigate(mode === 'menulisCepat' ? '/menulis-cepat' : `/write?mode=${mode || 'akademis'}`)}
                 className="flex-1 py-3 px-4 border border-indigo-600 text-indigo-600 bg-white font-semibold rounded-lg hover:bg-indigo-50 hover:scale-105 active:scale-95 transition-all duration-200 ease-in-out text-center text-sm"
               >
                 Latihan Lagi

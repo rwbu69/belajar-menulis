@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
 import { 
   PROMPT_GENERATOR_INSTRUCTIONS, 
-  buildEvaluationPrompt 
+  buildEvaluationPrompt,
+  aiPrompts
 } from '../config/aiPrompts';
 
 export class ApiError extends Error {
@@ -153,6 +154,53 @@ export const AppProvider = ({ children }) => {
     return evaluationText.trim();
   };
 
+  // Evaluate typing test stats using Cerebras API
+  const evaluateMenulisCepat = async (wpmVal, accVal, consVal, mistypedVal) => {
+    const apiKey = customApiKey || import.meta.env.VITE_CEREBRAS_API_KEY;
+    if (!apiKey) {
+      throw new Error('Cerebras API Key is missing. Silakan masukkan API Key Anda di halaman utama.');
+    }
+
+    const response = await fetch('/cerebras/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-oss-120b',
+        messages: [
+          {
+            role: 'system',
+            content: aiPrompts.menulisCepat.analyzePerformance,
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              wpm: wpmVal,
+              accuracy: accVal,
+              consistency: consVal,
+              mistypedChars: mistypedVal.slice(0, 15) // Keep context window small
+            }),
+          }
+        ],
+        max_tokens: 512,
+      }),
+    });
+
+    if (!response.ok) {
+      await handleResponseError(response);
+    }
+
+    const data = await response.json();
+    const evaluationText = data.choices?.[0]?.message?.content;
+    if (!evaluationText) {
+      throw new Error('Empty evaluation returned from Cerebras');
+    }
+
+    return evaluationText.trim();
+  };
+
   // Add exercise session to history with mode details
   const saveToHistory = (mode, promptText, userText, feedback) => {
     const newSession = {
@@ -179,6 +227,7 @@ export const AppProvider = ({ children }) => {
         setCustomApiKey,
         generateWritingPrompt,
         evaluateWriting,
+        evaluateMenulisCepat,
         saveToHistory,
         clearHistory,
       }}

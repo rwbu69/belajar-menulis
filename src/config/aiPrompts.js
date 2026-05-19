@@ -446,7 +446,7 @@ Skor: [X]/4
 
 ### Kriteria 2: Penggunaan EYD Edisi V
 **Kekuatan:** [deskripsi spesifik]
-**Area Perbaikan:** [deskripsi spesifik, sebutkan kata/kalimat yang salah jika ada]
+**Area Perbaikan:** [deskripsi spesifik]. JIKA ada kesalahan ejaan spesifik, WAJIB sertakan dalam format berikut: [Koreksi]: "kata salah" -> "kata benar". Pastikan kata salah diekstrak persis sesuai teks asli.
 Skor: [X]/4
 
 ### Kriteria 3: Kohesi dan Koherensi
@@ -507,7 +507,7 @@ Skor: [X]/4
 
 ### Kriteria 2: Kepatuhan Dasar EYD Edisi V
 **Kekuatan:** [deskripsi spesifik]
-**Area Perbaikan:** [deskripsi spesifik, sebutkan kesalahan jika ada]
+**Area Perbaikan:** [deskripsi spesifik]. JIKA ada kesalahan ejaan spesifik, WAJIB sertakan dalam format berikut: [Koreksi]: "kata salah" -> "kata benar". Pastikan kata salah diekstrak persis sesuai teks asli.
 Skor: [X]/4
 
 ### Kriteria 3: Alur dan Koherensi Naratif

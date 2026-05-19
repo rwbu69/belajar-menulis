@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AppContext } from '../context/AppContext';
 
@@ -160,6 +160,17 @@ const SplashPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Tentang Kami Link - Bottom Left */}
+      <Link
+        to="/tentang-kami"
+        className="absolute bottom-6 left-6 text-xs font-semibold text-gray-500 hover:text-indigo-600 transition-colors bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm border border-gray-200 flex items-center gap-2 z-10"
+      >
+        <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Tentang Kami & Referensi
+      </Link>
     </div>
   );
 };

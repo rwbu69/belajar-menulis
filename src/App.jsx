@@ -8,6 +8,7 @@ import WritingPage from './pages/WritingPage';
 import ResultsPage from './pages/ResultsPage';
 import NilaiSayaPage from './pages/NilaiSayaPage';
 import MenulisCepatPage from './pages/MenulisCepatPage';
+import AboutPage from './pages/AboutPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/nilai" element={<NilaiSayaPage />} />
           <Route path="/menulis-cepat" element={<MenulisCepatPage />} />
+          <Route path="/tentang-kami" element={<AboutPage />} />
         </Routes>
       </Router>
       <Toaster 

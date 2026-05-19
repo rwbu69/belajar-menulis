@@ -1,15 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip
-} from 'recharts';
 import { AppContext } from '../context/AppContext';
 import { aiPrompts } from '../config/aiPrompts';
 
@@ -26,25 +17,10 @@ const MenulisCepatPage = () => {
   const [currentWpm, setCurrentWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [consistency, setConsistency] = useState(0);
-  const [mistypedChars, setMistypedChars] = useState([]);
   
-  // Loading & Error States
+  // Loading States
   const [loadingParagraph, setLoadingParagraph] = useState(true);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [paragraphRateLimitCountdown, setParagraphRateLimitCountdown] = useState(0);
-  const [analysisRateLimitCountdown, setAnalysisRateLimitCountdown] = useState(0);
-  const [analysisFeedback, setAnalysisFeedback] = useState('');
-
-  // History State
-  const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem('menulisCepat_history');
-    try {
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error(e);
-      return [];
-    }
-  });
 
   // Refs for tracking timestamps & intervals
   const startTimeRef = useRef(null);
@@ -58,6 +34,22 @@ const MenulisCepatPage = () => {
     userTextRef.current = userText;
   }, [userText]);
 
+  // Kalkulasi sesuai dengan contohkalkulasi.js
+  const calculateWPM = (dataLen, totalMin) => {
+    if (totalMin <= 0) return 0;
+    return (dataLen / 5) / totalMin;
+  };
+
+  const calculateCPM = (dataLen, totalMin) => {
+    if (totalMin <= 0) return 0;
+    return dataLen / totalMin;
+  };
+
+  const calculateAccuracyStat = (correctCharCount, totalCharCount) => {
+    if (totalCharCount === 0) return 100;
+    return (correctCharCount / totalCharCount) * 100;
+  };
+
   // Standard Deviation calculator for Consistency metric
   const calculateStdDev = (samples) => {
     if (!samples || samples.length <= 1) return 0;
@@ -66,9 +58,7 @@ const MenulisCepatPage = () => {
     return Number(Math.sqrt(variance).toFixed(1));
   };
 
-  // Accuracy checker: character by character comparison
-  const calculateAccuracy = (typed, target) => {
-    if (typed.length === 0) return 100;
+  const getCorrectCharsCount = (typed, target) => {
     let correct = 0;
     const limit = Math.min(typed.length, target.length);
     for (let i = 0; i < limit; i++) {
@@ -76,7 +66,7 @@ const MenulisCepatPage = () => {
         correct++;
       }
     }
-    return Math.round((correct / typed.length) * 100);
+    return correct;
   };
 
   // Fetch paragraph from Cerebras API
@@ -135,68 +125,6 @@ const MenulisCepatPage = () => {
     }
   };
 
-  // Fetch performance analysis from Cerebras API
-  const fetchAnalysis = async (wpmVal, accVal, consVal, mistypedVal) => {
-    setLoadingAnalysis(true);
-    setAnalysisRateLimitCountdown(0);
-    setAnalysisFeedback('');
-    try {
-      const apiKey = customApiKey || import.meta.env.VITE_CEREBRAS_API_KEY;
-      if (!apiKey) {
-        throw new Error('API Key tidak ditemukan.');
-      }
-
-      const response = await fetch('/cerebras/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-oss-120b',
-          messages: [
-            {
-              role: 'system',
-              content: aiPrompts.menulisCepat.analyzePerformance,
-            },
-            {
-              role: 'user',
-              content: JSON.stringify({
-                wpm: wpmVal,
-                accuracy: accVal,
-                consistency: consVal,
-                mistypedChars: mistypedVal.slice(0, 15) // Keep context window small
-              }),
-            }
-          ],
-          max_tokens: 512,
-        }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw { status: 429 };
-        }
-        throw new Error(`Gagal (Status ${response.status})`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error('Response kosong');
-      setAnalysisFeedback(content.trim());
-    } catch (err) {
-      console.error(err);
-      if (err.status === 429) {
-        setAnalysisRateLimitCountdown(60);
-        return;
-      }
-      toast.error('Gagal mengambil analisis kinerja dari AI.');
-      setAnalysisFeedback('Gagal memuat analisis performa mengetik dari AI. Silakan coba tes ulang.');
-    } finally {
-      setLoadingAnalysis(false);
-    }
-  };
-
   // Run initial paragraph fetch
   useEffect(() => {
     fetchParagraph();
@@ -218,22 +146,6 @@ const MenulisCepatPage = () => {
     return () => clearInterval(interval);
   }, [paragraphRateLimitCountdown]);
 
-  // Interval hook for analysis rate limits countdown
-  useEffect(() => {
-    if (analysisRateLimitCountdown <= 0) return;
-    const interval = setInterval(() => {
-      setAnalysisRateLimitCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          fetchAnalysis(currentWpm, accuracy, consistency, mistypedChars);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [analysisRateLimitCountdown]);
-
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
@@ -250,30 +162,23 @@ const MenulisCepatPage = () => {
 
     const endTime = Date.now();
     const elapsedMin = (endTime - startTimeRef.current) / 60000;
-    const finalWpm = elapsedMin > 0 ? Math.round((finalText.length / 5) / elapsedMin) : 0;
-    setCurrentWpm(finalWpm);
+    
+    // Hitung exact stats berdasarkan contohkalkulasi.js
+    const totalCharsInf = finalText.length;
+    const correctCharsCount = getCorrectCharsCount(finalText, targetText);
+    
+    const finalWpm = calculateWPM(totalCharsInf, elapsedMin).toFixed(2);
+    const finalCpm = calculateCPM(totalCharsInf, elapsedMin).toFixed(2);
+    const finalAcc = calculateAccuracyStat(correctCharsCount, totalCharsInf).toFixed(2);
 
     // Standard deviation computation for consistency
     const finalSamples = [...wpmSamplesRef.current];
     if (finalSamples.length === 0 || (endTime - lastSampleTimeRef.current) >= 1000) {
-      finalSamples.push(finalWpm);
+      finalSamples.push(parseFloat(finalWpm));
     }
     const finalConsistency = calculateStdDev(finalSamples);
-    setConsistency(finalConsistency);
 
-    // Save stats to history logs
-    const dateStr = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-    const newSession = { date: dateStr, wpm: finalWpm };
-    const updatedHistory = [newSession, ...history];
-    setHistory(updatedHistory);
-    localStorage.setItem('menulisCepat_history', JSON.stringify(updatedHistory));
-
-    // Get mistyped characters array
+    // Get mistyped characters array for AI feedback
     const mistyped = [];
     const limit = Math.min(finalText.length, targetText.length);
     for (let i = 0; i < limit; i++) {
@@ -285,10 +190,20 @@ const MenulisCepatPage = () => {
         });
       }
     }
-    setMistypedChars(mistyped);
 
-    // Retrieve AI recommendations
-    fetchAnalysis(finalWpm, accuracy, finalConsistency, mistyped);
+    // Arahkan ke ResultsPage
+    navigate('/results', {
+      state: {
+        mode: 'menulisCepat',
+        prompt: targetText,
+        text: finalText,
+        wpm: finalWpm,
+        cpm: finalCpm,
+        accuracy: finalAcc,
+        consistency: finalConsistency,
+        mistypedChars: mistyped
+      }
+    });
   };
 
   // Keyboard typing input trigger
@@ -308,8 +223,8 @@ const MenulisCepatPage = () => {
         setElapsedSeconds(prev => {
           const nextSec = prev + 1;
           const elapsed = (Date.now() - startTimeRef.current) / 60000;
-          const liveWpm = elapsed > 0 ? Math.round((userTextRef.current.length / 5) / elapsed) : 0;
-          setCurrentWpm(liveWpm);
+          const liveWpm = calculateWPM(userTextRef.current.length, elapsed);
+          setCurrentWpm(Math.round(liveWpm));
 
           // Sample WPM speed every 5 seconds for consistency
           if (nextSec % 5 === 0) {
@@ -324,12 +239,13 @@ const MenulisCepatPage = () => {
     setUserText(val);
 
     // Compute live stats
-    const acc = calculateAccuracy(val, targetText);
-    setAccuracy(acc);
+    const correctCount = getCorrectCharsCount(val, targetText);
+    const acc = calculateAccuracyStat(correctCount, val.length);
+    setAccuracy(Math.round(acc));
 
     const elapsed = startTimeRef.current ? (Date.now() - startTimeRef.current) / 60000 : 0;
-    const wpm = elapsed > 0 ? Math.round((val.length / 5) / elapsed) : 0;
-    setCurrentWpm(wpm);
+    const wpm = calculateWPM(val.length, elapsed);
+    setCurrentWpm(Math.round(wpm));
 
     if (val.length === targetText.length) {
       handleComplete(val);
@@ -346,20 +262,9 @@ const MenulisCepatPage = () => {
     setCurrentWpm(0);
     setAccuracy(100);
     setConsistency(0);
-    setMistypedChars([]);
-    setAnalysisFeedback('');
     startTimeRef.current = null;
     wpmSamplesRef.current = [];
     fetchParagraph();
-  };
-
-  // Reset local storage logs
-  const handleResetHistory = () => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus seluruh riwayat menulis cepat?')) {
-      localStorage.removeItem('menulisCepat_history');
-      setHistory([]);
-      toast.success('Riwayat berhasil dibersihkan.');
-    }
   };
 
   // Render HTML markup of targeted paragraph character by character
@@ -385,13 +290,6 @@ const MenulisCepatPage = () => {
       );
     });
   };
-
-  // Formatted display of history logs for chart
-  const chartData = [...history].reverse().map((item, idx) => ({
-    name: item.date,
-    wpm: item.wpm,
-    index: idx + 1
-  }));
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -549,95 +447,6 @@ const MenulisCepatPage = () => {
                 *Pengingat: Evaluasi teks mengetik dan analisis performa dari AI (gpt-oss-120b) tidak mungkin 100% benar.
               </div>
             </div>
-
-            {/* Analysis & Progress History Panel */}
-            {isFinished && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-6 animate-slide-up-fade">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-1.5">
-                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    Hasil & Analisis Performa AI (gpt-oss-120b)
-                  </h3>
-
-                  {analysisRateLimitCountdown > 0 ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-center">
-                      <div className="w-8 h-8 border-3 border-amber-100 border-t-amber-600 rounded-full animate-spin"></div>
-                      <span className="text-xs text-amber-700 font-semibold">
-                        Rate limit tercapai. Mencoba ulang analisis dalam {analysisRateLimitCountdown} detik...
-                      </span>
-                    </div>
-                  ) : loadingAnalysis ? (
-                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-6 flex flex-col items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-2 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                      <span className="text-xs text-gray-500 animate-pulse">Menghubungi Cerebras AI untuk menganalisis performa jari Anda...</span>
-                    </div>
-                  ) : (
-                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed font-medium italic">
-                      "{analysisFeedback || 'Performa pengetikan Anda cukup baik. Terus berlatih mengetik sepuluh jari agar semakin terbiasa dan stabil.'}"
-                    </div>
-                  )}
-                </div>
-
-                {/* Progress Line Chart */}
-                <div className="border-t border-gray-100 pt-5 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Perkembangan Kecepatan Menulis Cepat</span>
-                    {history.length > 0 && (
-                      <button
-                        onClick={handleResetHistory}
-                        className="text-xxs text-rose-600 hover:text-rose-800 font-bold tracking-wide uppercase transition-colors"
-                      >
-                        Reset Riwayat
-                      </button>
-                    )}
-                  </div>
-
-                  {history.length === 0 ? (
-                    <p className="text-xs text-gray-400 text-center py-4">Belum ada riwayat tercatat. Lakukan tes pengetikan untuk merekam grafik perkembangan.</p>
-                  ) : (
-                    <div className="w-full h-48 mt-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9CA3AF' }} tickLine={false} />
-                          <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} domain={['auto', 'auto']} tickLine={false} axisLine={false} />
-                          <Tooltip
-                            contentStyle={{
-                              fontSize: '11px',
-                              borderRadius: '8px',
-                              border: '1px solid #E5E7EB',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                              color: '#1E293B'
-                            }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="wpm"
-                            name="WPM"
-                            stroke="#D97706"
-                            strokeWidth={2.5}
-                            activeDot={{ r: 6 }}
-                            dot={{ r: 3, fill: '#D97706', strokeWidth: 0 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                </div>
-
-                {/* Try Again CTA */}
-                <div className="flex justify-center border-t border-gray-100 pt-5">
-                  <button
-                    onClick={handleRetry}
-                    className="bg-amber-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-sm hover:bg-amber-700 hover:scale-105 active:scale-95 transition-all duration-200"
-                  >
-                    Tes Mengetik Baru
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Default Retry CTA if finished isn't shown yet and load succeeds */}
             {!isFinished && !loadingParagraph && (
