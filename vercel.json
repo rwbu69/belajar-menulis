@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/cerebras/:path*",
+      "destination": "https://api.cerebras.ai/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

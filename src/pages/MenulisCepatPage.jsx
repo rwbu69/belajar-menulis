@@ -287,17 +287,19 @@ const MenulisCepatPage = () => {
   const renderTargetText = () => {
     if (!targetText) return null;
     return targetText.split('').map((char, index) => {
-      let className = 'transition-all duration-100 ';
+      let className = 'font-mono font-medium transition-colors duration-75 ';
+      let style = {};
       if (index < userText.length) {
         if (userText[index] === char) {
-          className += 'text-emerald-600 bg-emerald-50/70 font-semibold';
+          className += 'text-emerald-600 bg-emerald-50/70';
         } else {
-          className += 'text-rose-600 bg-rose-50/70 font-semibold underline decoration-rose-400';
+          className += 'text-rose-600 bg-rose-50/70 underline decoration-rose-400';
         }
       } else if (index === userText.length) {
-        className += 'text-slate-800 bg-indigo-100 font-bold border-l-2 border-indigo-600 animate-pulse';
+        className += 'text-slate-800 bg-indigo-100 animate-pulse';
+        style = { boxShadow: 'inset 2px 0 0 0 #4f46e5' };
         return (
-          <span key={index} ref={activeCharRef} className={className}>
+          <span key={index} ref={activeCharRef} className={className} style={style}>
             {char}
           </span>
         );
@@ -305,7 +307,7 @@ const MenulisCepatPage = () => {
         className += 'text-gray-400';
       }
       return (
-        <span key={index} className={className}>
+        <span key={index} className={className} style={style}>
           {char}
         </span>
       );
@@ -433,7 +435,7 @@ const MenulisCepatPage = () => {
                   <span className="text-xs text-gray-500 animate-pulse">Membuat teks baru dari AI...</span>
                 </div>
               ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 select-none font-serif text-sm md:text-base leading-relaxed tracking-wide min-h-32 whitespace-pre-wrap max-h-56 overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 select-none font-mono text-sm md:text-base leading-relaxed tracking-normal min-h-32 whitespace-pre-wrap max-h-56 overflow-y-auto scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                   {renderTargetText()}
                 </div>
               )}
