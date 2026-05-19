@@ -1,116 +1,90 @@
 # Belajar Menulis - Platform Latihan Menulis Akademik dan Kreatif
 
-Belajar Menulis adalah sebuah aplikasi web berbasis React, Vite, dan Tailwind CSS yang dirancang sebagai platform latihan menulis mandiri bagi pelajar Indonesia. Aplikasi ini memanfaatkan integrasi kecerdasan buatan (LLM) gpt-oss-120b melalui API Cerebras AI untuk memberikan umpan balik dan evaluasi instan terhadap kualitas tulisan pengguna.
+Belajar Menulis adalah sebuah aplikasi web interaktif berbasis React, Vite, dan Tailwind CSS yang dirancang sebagai platform latihan menulis mandiri bagi pelajar Indonesia. Aplikasi ini mengintegrasikan kecerdasan buatan (LLM) untuk memberikan umpan balik, evaluasi tulisan, hingga analisis performa mengetik.
 
-## Fitur Utama
+---
 
-1. Jalur Pembelajaran Ganda
-   - Penulisan Akademis: Fokus pada tulisan argumentatif, ilmiah, dan formal dengan kriteria penilaian terstandar.
-   - Penulisan Kreatif: Fokus pada tulisan deskriptif, naratif, dan sastra menggunakan kiasan atau majas.
+## 🌟 Fitur Utama & Cara Kerja Aplikasi
 
-2. Batasan Minimum Tulisan
-   - Mewajibkan penginputan paragraf dengan panjang lebih dari 100 kata (minimal 101 kata) untuk memaksa pengguna menyusun argumen atau deskripsi secara mendalam.
+Aplikasi ini dibagi menjadi beberapa fitur utama yang bekerja secara sinergis:
 
-3. Sistem Penilaian Terperinci
-   - Memberikan umpan balik instan berupa skor 1 sampai 4 pada setiap kriteria serta kalkulasi total skor maksimal 20. Umpan balik dipisahkan secara terstruktur ke dalam aspek Kekuatan Utama dan Area Perbaikan berdasarkan pedoman Ejaan Bahasa Indonesia yang Disempurnakan (EYD) Edisi V.
+### 1. Jalur Pembelajaran & Umpan Balik AI
+- **Menulis Akademis**: Melatih argumen dan struktur berpikir kritis (skala penilaian 1-4).
+- **Menulis Kreatif**: Melatih ekspresi, majas, dan imajinasi sastra.
+- **Koreksi Spesifik (Inline Feedback)**: Secara cerdas menyorot (highlight) ejaan yang salah di teks pengguna layaknya Grammarly, memberikan saran koreksi secara langsung pada kata tersebut menggunakan fungsi parser respons AI.
 
-4. Grafik Perkembangan Kompetensi
-   - Menyajikan dashboard analisis statistik yang secara otomatis menghitung rata-rata skor per kriteria dari seluruh riwayat latihan pengguna dan menentukan kekuatan utama serta aspek yang memerlukan perhatian lebih.
+**Cara Kerja AI (Prompt Engineering):**
+Aplikasi mengirimkan permintaan ke API LLM dengan instruksi spesifik. 
+- *Generator Topik* dipaksa untuk menghasilkan hanya instruksi/pertanyaan berbobot (menghindari hasil klise).
+- *Evaluator* dilengkapi dengan **Few-Shot Examples** dan aturan pedoman baku (EYD V). Evaluator membedah tulisan per kriteria untuk menghasilkan XML/Plaintext yang terstruktur (`[Koreksi]: "salah" -> "benar"`).
 
-5. Penyimpanan Lokal dan Fleksibilitas API Key
-   - Riwayat latihan disimpan secara lokal di dalam browser (Local Storage) untuk menjaga privasi data.
-   - Pengguna dapat memilih untuk menggunakan kunci API default dari sistem atau menggunakan kunci API kustom milik pribadi yang disimpan aman secara lokal.
+### 2. Tes Menulis Cepat (Typing Test)
+Fitur latihan untuk mengasah ketangkasan jari-jemari. Teks latihan di-*generate* secara dinamis menggunakan AI untuk mencegah pengguna menghafal teks.
 
-## Cara Kerja Aplikasi
+**Sistem Perhitungan (Kalkulasi):**
+Aplikasi menggunakan rumus baku untuk menghitung performa mengetik pengguna:
+- **WPM (Words Per Minute)**: Dihitung dengan rumus `(Total Karakter / 5) / Waktu Berlalu (Menit)`. Mengapa dibagi 5? Karena rata-rata satu "kata" direpresentasikan oleh 5 karakter termasuk spasi.
+- **CPM (Characters Per Minute)**: Dihitung dengan `Total Karakter / Waktu Berlalu (Menit)`.
+- **Akurasi**: Persentase `(Karakter Benar / Total Karakter) * 100`. Setiap huruf, spasi, dan tanda baca dihitung.
+- **Konsistensi (Deviasi)**: Dihitung menggunakan **Standar Deviasi**. Aplikasi mengambil sampel WPM Anda setiap 5 detik. Perbedaan varian antara sampel-sampel ini diukur untuk menentukan konsistensi. Semakin rendah angkanya, semakin konsisten kecepatan Anda.
 
-1. Pemilihan Jalur (Track Selection)
-   - Pengguna memilih antara jalur Akademis atau Kreatif di halaman pilihan. Sistem menetapkan context parameter dan instruksi sistem yang sesuai.
+### 3. Gamifikasi & Dasbor Nilai
+- **Pencapaian (Achievements)**: Sistem memberikan lencana secara otomatis (contoh: *Langkah Pertama*, *Konsisten*, *Si Kilat*, *Penembak Jitu*, dan *Pujangga*) berdasarkan data rekam jejak yang dievaluasi di `localStorage`.
+- **Grafik Perkembangan**: Hasil akhir dan umpan balik pengguna divisualisasikan dalam bentuk grafik garis (*line chart*) untuk menganalisis perkembangan kompetensi secara jangka panjang.
 
-2. Pengambilan Topik (Prompt Generation)
-   - Sistem mengirimkan permintaan ke endpoint /v1/chat/completions Cerebras AI dengan instruksi sistem generator topik. Model mengembalikan topik bertipe perintah (imperatif) atau pertanyaan (interogatif).
+---
 
-3. Penulisan dan Validasi Word Count
-   - Pengguna menulis tanggapan mereka terhadap topik di area teks. Validasi dilakukan di sisi klien untuk memastikan panjang tulisan telah melebihi 100 kata sebelum memperbolehkan pengiriman data ke server.
+## 🚀 Panduan Instalasi dan Setup Lokal
 
-4. Evaluasi AI (Evaluation & Assessment)
-   - Esai dikirimkan ke endpoint evaluasi dengan menyertakan rubrik penilaian yang ketat. Respons yang diterima kemudian di-parse di sisi klien untuk mengonversi tag ulasan dan skor numerik menjadi visualisasi antarmuka (badge pill dan kartu penilaian).
-
-5. Penyimpanan Riwayat & Visualisasi Data
-   - Hasil akhir disimpan ke dalam riwayat lokal. Halaman Nilai Saya mengolah riwayat ini untuk menghitung rata-rata nilai kriteria, menampilkan grafik batang kompetensi, serta memetakan kelemahan berdasarkan analisis kata kunci.
-
-## Metode Prompt Engineering
-
-Aplikasi ini menggunakan teknik System Prompting terstruktur dan Few-Shot Prompting untuk memandu model gpt-oss-120b menghasilkan respons yang konsisten, berformat baku, dan akurat.
-
-### 1. Generator Topik (Topic Generator Prompt)
-Prompt sistem dirancang khusus untuk membatasi model agar tidak memberikan penjelasan tambahan selain teks topik, serta dilengkapi instruksi penjelajahan topik agar tidak monoton.
-- Akademis: Memerintahkan model untuk merumuskan topik akademis/ilmiah populer yang memicu pemikiran kritis. Format harus berupa satu kalimat pertanyaan (interogatif) atau perintah (imperatif) dengan panjang 2-3 kalimat. Model diperintahkan mengeksplorasi domain bahasan yang luas (seperti teknologi masa depan, kecerdasan buatan, kesehatan mental, etika sains, literasi digital, ekonomi, budaya lokal, dll.) dan dilarang menggunakan topik-topik klise yang berulang.
-- Kreatif: Memerintahkan model untuk merumuskan topik deskriptif atau skenario awal narasi yang memicu daya imajinasi sastra. Format harus berupa satu kalimat arahan bersastra dengan panjang 2-3 kalimat. Model diperintahkan mengeksplorasi ragam genre dan latar suasana (seperti realisme magis, solarpunk/distopia, latar pedesaan/perkotaan khas Indonesia, emosi abstrak, fantasi kosmik, dll.) untuk menghadirkan stimulasi imajinasi yang unik.
-
-### 2. Evaluator Esai (Essay Evaluator Prompt)
-Prompt sistem mencakup rubrik penilaian terstandar berskala 1-4 untuk masing-masing kriteria.
-- Kriteria Akademis: Struktur Paragraf, Penggunaan EYD Edisi V, Kohesi & Koherensi, Diksi & Kosakata, serta Kejelasan Ide.
-- Kriteria Kreatif: Kedalaman Deskripsi & Indra, Dasar EYD Sastra, Alur & Koherensi Naratif, Diksi & Majas, serta Orisinalitas Ide.
-- Few-Shot Examples: Menyertakan contoh format output XML/Plaintext baku dalam instruksi sistem untuk menjamin format keluaran selalu mengandung tag penanda:
-  - Skor kriteria: "Skor: [nilai]/4"
-  - Kekuatan utama: "**Kekuatan**"
-  - Area kelemahan: "**Area Perbaikan**"
-  - Skor total: "Total Skor: [nilai]/20"
-- Pedoman EYD V: Menginstruksikan model untuk merujuk pada pedoman resmi tata bahasa Indonesia (seperti penulisan huruf kapital, kata depan di/ke, dan tanda baca).
-
-## Panduan Instalasi dan Setup
+Untuk menjalankan aplikasi ini secara lokal, ikuti langkah-langkah di bawah ini.
 
 ### Prasyarat
-- Node.js versi 18 atau yang lebih baru.
-- Kunci API dari Cerebras Cloud (opsional, jika tidak ingin memakai default).
+- **Node.js** versi 18 atau yang lebih baru.
+- Kunci API (API Key) dari Cerebras Cloud.
 
-### Langkah-Langkah Setup
+### Langkah-Langkah
 
-1. Clone Repository
+1. **Clone Repository**
    ```bash
    git clone https://github.com/rwbu69/jadi-penulis.git
    cd jadi-penulis
    ```
 
-2. Instal Dependensi
-   Jalankan perintah berikut untuk mengunduh dan menginstal pustaka-pustaka yang diperlukan:
+2. **Instal Dependensi**
    ```bash
    npm install
    ```
 
-3. Konfigurasi Environment
-   Buat file bernama `.env` di direktori root proyek dan masukkan kunci API Cerebras Anda:
+3. **Konfigurasi Environment Variable**
+   Buat sebuah file baru bernama `.env` di *root directory* proyek, lalu masukkan kunci API Anda:
    ```env
    VITE_CEREBRAS_API_KEY=masukkan_kunci_api_cerebras_anda_di_sini
    ```
 
-4. Jalankan Development Server
-   Jalankan server pengembangan lokal:
+4. **Jalankan Development Server**
    ```bash
    npm run dev
    ```
-   Aplikasi akan berjalan di alamat http://localhost:5173.
+   Aplikasi akan dapat diakses di browser melalui tautan `http://localhost:5173`.
 
-5. Kompilasi Produksi
-   Untuk membuat bundel produksi yang optimal:
-   ```bash
-   npm run build
-   ```
-   Hasil build akan disimpan di dalam direktori `dist`.
+---
 
-## Konfigurasi Teknis Proxy
+## 🔑 Cara Mendapatkan API Key & Referensi LLM Model
 
-Untuk menghindari kendala CORS (Cross-Origin Resource Sharing) selama pengembangan di lingkungan lokal, konfigurasi server pengembangan di dalam `vite.config.js` diatur untuk meneruskan permintaan dari endpoint `/cerebras` ke API resmi Cerebras:
+Aplikasi ini menggunakan model kecerdasan buatan dari ekosistem **gpt-oss-120b**. Anda harus mendaftar dan men-generate API key untuk menggunakannya.
 
-```javascript
-server: {
-  proxy: {
-    '/cerebras': {
-      target: 'https://api.cerebras.ai',
-      changeOrigin: true,
-      rewrite: (path) => path.replace(/^\/cerebras/, ''),
-    },
-  },
-}
-```
-Setiap panggilan API di dalam kode aplikasi cukup diarahkan ke `/cerebras/v1/chat/completions` dengan melampirkan header otorisasi yang sesuai.
+1. Buka halaman pengembang untuk Cerebras AI atau API Provider Anda.
+2. Buat akun (atau masuk jika sudah memiliki akun).
+3. Arahkan ke dasbor "API Keys" pada pengaturan akun Anda.
+4. Klik **Create new secret key** dan salin API Key yang diberikan. (Jangan pernah membagikan kunci rahasia ini ke publik!)
+5. Tempel API key tersebut ke dalam file `.env` yang Anda buat pada tahap instalasi di atas, atau masukkan langsung lewat UI form di halaman *Splash Page* aplikasi.
+
+**Referensi LLM Model yang Digunakan:**  
+Seluruh ulasan kecerdasan buatan dalam aplikasi ini digerakkan oleh instruksi (prompting) pada model *gpt-oss-120b*. Untuk rujukan teknis spesifikasi model yang digunakan, silakan kunjungi dokumentasi resminya:
+🔗 [OpenAI API Docs: gpt-oss-120b Model](https://developers.openai.com/api/docs/models/gpt-oss-120b)
+
+---
+
+## 🔧 Konfigurasi Teknis (Proxy CORS)
+
+Jika Anda melihat file `vite.config.js`, aplikasi ini telah dikonfigurasi untuk mem-bypass *CORS* (Cross-Origin Resource Sharing) yang biasa terjadi saat melakukan API Request dari browser lokal (client-side) ke penyedia API jarak jauh. Konfigurasi `server.proxy` diatur untuk meneruskan setiap *request* yang berawalan `/cerebras` menuju server API yang sebenarnya.
