@@ -69,6 +69,11 @@ const WritingPage = () => {
 
   const wordCount = getWordCount(userText);
 
+  const handlePaste = (e) => {
+    e.preventDefault();
+    toast.error('Untuk melatih kejujuran dan keaslian tulisan, Anda wajib mengetik tulisan secara langsung tanpa menyalin (copy-paste) dari sumber lain.');
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!userText.trim()) {
@@ -287,6 +292,7 @@ const WritingPage = () => {
                   rows={8}
                   value={userText}
                   onChange={(e) => setUserText(e.target.value)}
+                  onPaste={handlePaste}
                   placeholder={mode === 'kreatif' ? 'Tulis paragraf naratif atau deskriptif Anda di sini (harus lebih dari 100 kata)...' : 'Tulis paragraf tanggapan akademis Anda di sini (harus lebih dari 100 kata)...'}
                   className="w-full flex-1 p-4 border border-gray-300 rounded-lg text-slate-800 text-sm focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 resize-none transition-all duration-200"
                 />
