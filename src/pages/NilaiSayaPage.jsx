@@ -299,6 +299,12 @@ const NilaiSayaPage = () => {
         return;
       }
 
+      if (trimmed === '---' || trimmed.startsWith('***')) {
+        flushList(index);
+        elements.push(<hr key={`hr-${index}`} className="my-4 border-gray-250/50" />);
+        return;
+      }
+
       // Render individual criteria scores as highlight pills
       if (trimmed.toLowerCase().startsWith('skor:')) {
         flushList(index);

@@ -32,6 +32,7 @@ const MenulisCepatPage = () => {
   const lastSampleTimeRef = useRef(null);
   const userTextRef = useRef('');
   const activeCharRef = useRef(null);
+  const paragraphFetched = useRef(false);
 
   // Auto scroll to active character
   useEffect(() => {
@@ -133,7 +134,7 @@ const MenulisCepatPage = () => {
         setParagraphRateLimitCountdown(60);
         return;
       }
-      toast.error('Gagal memuat paragraf dari AI. Menggunakan paragraf cadangan.');
+      toast.error(err.message || 'Gagal memuat paragraf dari AI. Menggunakan paragraf cadangan.');
       setIsOfflineParagraph(true);
       const randomParagraph = FALLBACK_TYPING_PARAGRAPHS[Math.floor(Math.random() * FALLBACK_TYPING_PARAGRAPHS.length)];
       setTargetText(randomParagraph);
@@ -144,6 +145,8 @@ const MenulisCepatPage = () => {
 
   // Run initial paragraph fetch
   useEffect(() => {
+    if (paragraphFetched.current) return;
+    paragraphFetched.current = true;
     fetchParagraph();
   }, []);
 

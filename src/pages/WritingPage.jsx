@@ -44,7 +44,7 @@ const WritingPage = () => {
         setRateLimitCountdown(60);
         return;
       }
-      toast.error('Gagal memuat topik dari AI. Menggunakan topik cadangan.');
+      toast.error(err.message || 'Gagal memuat topik dari AI. Menggunakan topik cadangan.');
       setIsOfflinePrompt(true);
       const fallbacks = FALLBACK_PROMPTS[mode] || FALLBACK_PROMPTS.akademis;
       const randomPrompt = fallbacks[Math.floor(Math.random() * fallbacks.length)];

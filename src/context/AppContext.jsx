@@ -52,6 +52,9 @@ export const AppProvider = ({ children }) => {
     if (response.status === 429) {
       throw new ApiError('Batas limitasi request (Rate Limit 429) tercapai. Harap tunggu beberapa saat sebelum mencoba kembali.', 429);
     }
+    if (response.status === 402) {
+      throw new ApiError('Saldo/kredit Cerebras API Key Anda telah habis atau perlu mengisi informasi pembayaran (Payment Required 402). Silakan cek tab billing di cloud.cerebras.ai.', 402);
+    }
     if (response.status === 401) {
       throw new ApiError('API Key tidak valid atau tidak memiliki izin akses (Unauthorized 401). Periksa kembali API Key Anda.', 401);
     }

@@ -10,45 +10,91 @@ const HighlightedText = ({ text, corrections }) => {
     return <p className="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-wrap">{text}</p>;
   }
 
-  const findMatchRanges = (fullText, wrongStr) => {
-    // 1. Try exact match first
+  const findAllMatchRanges = (fullText, wrongStr) => {
+    const ranges = [];
+    if (!wrongStr) return ranges;
+
+    const isWholeWord = (start, end) => {
+      if (start > 0) {
+        const prevChar = fullText[start - 1];
+        if (/[a-zA-Z0-9]/.test(prevChar)) return false;
+      }
+      if (end < fullText.length) {
+        const nextChar = fullText[end];
+        if (/[a-zA-Z0-9]/.test(nextChar)) return false;
+      }
+      return true;
+    };
+
+    // 1. Coba cari yang pas banget dulu (exact match)
     let idx = fullText.indexOf(wrongStr);
-    if (idx !== -1) return { start: idx, end: idx + wrongStr.length };
+    while (idx !== -1) {
+      ranges.push({
+        start: idx,
+        end: idx + wrongStr.length,
+        wholeWord: isWholeWord(idx, idx + wrongStr.length)
+      });
+      idx = fullText.indexOf(wrongStr, idx + 1);
+    }
 
-    // 2. Try case-insensitive match
-    idx = fullText.toLowerCase().indexOf(wrongStr.toLowerCase());
-    if (idx !== -1) return { start: idx, end: idx + wrongStr.length };
-
-    // 3. Try flexible match ignoring punctuation and whitespace
-    const map = [];
-    let normalizedText = "";
-    for (let i = 0; i < fullText.length; i++) {
-      const char = fullText[i];
-      if (/[a-zA-Z0-9]/.test(char)) {
-        normalizedText += char.toLowerCase();
-        map.push(i);
+    // 2. Kalau belum ketemu, coba cari yang gak sensitif huruf kapital (case-insensitive)
+    if (ranges.length === 0) {
+      const lowerText = fullText.toLowerCase();
+      const lowerWrong = wrongStr.toLowerCase();
+      let lIdx = lowerText.indexOf(lowerWrong);
+      while (lIdx !== -1) {
+        ranges.push({
+          start: lIdx,
+          end: lIdx + wrongStr.length,
+          wholeWord: isWholeWord(lIdx, lIdx + wrongStr.length)
+        });
+        lIdx = lowerText.indexOf(lowerWrong, lIdx + 1);
       }
     }
 
-    let normalizedWrong = wrongStr.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (normalizedWrong.length === 0) return null;
+    // 3. Cari yang mirip walau beda tanda baca atau spasi
+    if (ranges.length === 0) {
+      const map = [];
+      let normalizedText = "";
+      for (let i = 0; i < fullText.length; i++) {
+        const char = fullText[i];
+        if (/[a-zA-Z0-9]/.test(char)) {
+          normalizedText += char.toLowerCase();
+          map.push(i);
+        }
+      }
 
-    let normIdx = normalizedText.indexOf(normalizedWrong);
-    if (normIdx !== -1) {
-      const originalStart = map[normIdx];
-      const originalEnd = map[normIdx + normalizedWrong.length - 1] + 1;
-      return { start: originalStart, end: originalEnd };
+      const normalizedWrong = wrongStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normalizedWrong.length > 0) {
+        let normIdx = normalizedText.indexOf(normalizedWrong);
+        while (normIdx !== -1) {
+          const originalStart = map[normIdx];
+          const originalEnd = map[normIdx + normalizedWrong.length - 1] + 1;
+          ranges.push({
+            start: originalStart,
+            end: originalEnd,
+            wholeWord: isWholeWord(originalStart, originalEnd)
+          });
+          normIdx = normalizedText.indexOf(normalizedWrong, normIdx + 1);
+        }
+      }
     }
 
-    return null;
+    // Utamakan yang cocoknya satu kata penuh. Kalau ada, pakai yang itu aja biar akurat.
+    const wholeWordRanges = ranges.filter(r => r.wholeWord);
+    if (wholeWordRanges.length > 0) {
+      return wholeWordRanges.map(({ start, end }) => ({ start, end }));
+    }
+
+    return ranges.map(({ start, end }) => ({ start, end }));
   };
 
   let highlightRanges = [];
   corrections.forEach((corr, idx) => {
-    const range = findMatchRanges(text, corr.wrong);
-    if (range) {
+    const ranges = findAllMatchRanges(text, corr.wrong);
+    ranges.forEach(range => {
       highlightRanges.push({ ...range, ...corr, corrIdx: idx });
-    }
+    });
   });
 
   highlightRanges.sort((a, b) => a.start - b.start);
@@ -109,10 +155,10 @@ const ResultsPage = () => {
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
 
-  // Guard against React Strict Mode double-firing during dev
+  // Biar gak kepanggil dua kali pas development (efek React Strict Mode)
   const evaluationFetched = useRef(false);
 
-  // Guard: if no prompt/text, redirect to /pilih
+  // Jaga-jaga kalau datanya kosong, langsung lempar balik ke halaman pilih
   useEffect(() => {
     if (!prompt || !text) {
       toast.error('Data tulisan tidak ditemukan, kembali ke halaman utama.');
@@ -135,7 +181,7 @@ const ResultsPage = () => {
     } catch (err) {
       console.error('API Evaluation failed, switching to local evaluation engine:', err);
       setIsOfflineMode(true);
-      toast.error('Gagal memuat evaluasi AI. Mengaktifkan sistem penilaian lokal.');
+      toast.error(err.message || 'Gagal memuat evaluasi AI. Mengaktifkan sistem penilaian lokal.');
       
       let localFeedback;
       if (mode === 'menulisCepat') {
@@ -171,7 +217,7 @@ const ResultsPage = () => {
     return () => clearInterval(interval);
   }, [rateLimitCountdown, fetchEvaluation]);
 
-  // Results visible transition trigger
+  // Efek transisi biar hasil ulasannya muncul pelan-pelan (fade-in)
   useEffect(() => {
     if (!loading) {
       const timer = setTimeout(() => {
@@ -225,7 +271,7 @@ const ResultsPage = () => {
          earnedToasts.push("Pencapaian Terbuka: Langkah Pertama!");
       }
       
-      if (hist.length === 2) { // will become 3
+      if (hist.length === 2) { // pas disave bakal jadi ke-3
          earnedToasts.push("Pencapaian Terbuka: Konsisten!");
       }
       
@@ -245,7 +291,7 @@ const ResultsPage = () => {
       toast.success('Latihan Anda berhasil disimpan!');
     }
     
-    // Show achievement toasts
+    // Tampilkan toast buat pencapaian baru
     earnedToasts.forEach((msg, idx) => {
        setTimeout(() => {
           toast(msg, {
@@ -273,7 +319,7 @@ const ResultsPage = () => {
 
   const corrections = parseCorrections(evaluation);
 
-  // Helper to parse double asterisks and hash headers into beautiful React elements
+  // Helper buat ubah tanda bintang dan pagar markdown jadi elemen React yang kece
   const renderFeedbackText = (text) => {
     if (!text) return null;
 
@@ -302,7 +348,13 @@ const ResultsPage = () => {
         return;
       }
 
-      // Render individual criteria scores as highlight pills
+      if (trimmed === '---' || trimmed.startsWith('***')) {
+        flushList(index);
+        elements.push(<hr key={`hr-${index}`} className="my-6 border-gray-200" />);
+        return;
+      }
+
+      // Tampilkan skor per kriteria pakai pill badge berwarna
       if (trimmed.toLowerCase().startsWith('skor:')) {
         flushList(index);
         const scoreMatch = trimmed.match(/skor:\s*\*?\[?(\d+)\]?\/\[?(\d+)\]?\*?/i);
@@ -328,7 +380,7 @@ const ResultsPage = () => {
         }
       }
 
-      // Render Total Skor as a grand total card
+      // Tampilkan Total Skor dalam bentuk card penutup
       if (trimmed.toLowerCase().includes('total skor:')) {
         flushList(index);
         const totalMatch = trimmed.match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?\s*(?:—|-)?\s*\*?\[?(.*?)\]?\*?$/i);
@@ -421,7 +473,7 @@ const ResultsPage = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col fade-in">
-      {/* Navigation Header */}
+      {/* Header Navigasi Atas */}
       <header className="border-b border-gray-200 py-4 px-6 md:px-12 flex justify-between items-center bg-white">
         <div className="flex items-center gap-4">
           <Link to="/" className="hover:opacity-90 transition-all duration-200">
@@ -452,7 +504,7 @@ const ResultsPage = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
+      {/* Area Konten Utama */}
       <main className="flex-1 max-w-4xl w-full mx-auto p-6 md:p-12 flex flex-col justify-center">
         {rateLimitCountdown > 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
@@ -480,7 +532,7 @@ const ResultsPage = () => {
               resultsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
             }`}
           >
-            {/* Warning Banner */}
+            {/* Banner Peringatan kalau Offline */}
             {isOfflineMode && (
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3 text-amber-800 animate-pulse">
                 <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -495,7 +547,7 @@ const ResultsPage = () => {
               </div>
             )}
 
-            {/* Evaluation Metadata Card */}
+            {/* Kartu Informasi Ulasan (Metadata) */}
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 md:p-6 space-y-4">
               <div>
                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Topik / Teks Target</h3>
@@ -529,7 +581,7 @@ const ResultsPage = () => {
               </div>
             </div>
 
-            {/* AI Feedback Display Card */}
+            {/* Kartu Tampilan Ulasan AI */}
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-slate-800">
                 {isOfflineMode
@@ -556,7 +608,7 @@ const ResultsPage = () => {
               </div>
             </div>
 
-            {/* Bottom Actions - delayed fade-in */}
+            {/* Tombol Aksi di Bawah - ada efek delay pas muncul */}
             <div 
               className={`flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-100 transition-opacity duration-300 ease-in delay-200 ${
                 resultsVisible ? 'opacity-100' : 'opacity-0'
