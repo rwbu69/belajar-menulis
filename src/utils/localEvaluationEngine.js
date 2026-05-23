@@ -152,7 +152,7 @@ export function runLocalEvaluation(mode, promptText, studentText) {
     : `Diksi sudah cukup formal dan disesuaikan dengan ejaan baku.`;
 
   const totalScore = scoreStructure + scoreEYD + scoreCohesion + scoreDiksi + scoreRelevance;
-  let predikat = "Cukup (C)";
+  let predikat;
   if (totalScore >= 18) predikat = "Sangat Baik (A)";
   else if (totalScore >= 14) predikat = "Baik (B)";
   else if (totalScore >= 10) predikat = "Cukup (C)";

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AppContext } from '../context/AppContext';
@@ -85,7 +85,7 @@ const MenulisCepatPage = () => {
   };
 
   // Fetch paragraph from Cerebras API
-  const fetchParagraph = async () => {
+  const fetchParagraph = useCallback(async () => {
     setLoadingParagraph(true);
     setParagraphRateLimitCountdown(0);
     setIsOfflineParagraph(false);
@@ -141,14 +141,14 @@ const MenulisCepatPage = () => {
     } finally {
       setLoadingParagraph(false);
     }
-  };
+  }, [customApiKey]);
 
   // Run initial paragraph fetch
   useEffect(() => {
     if (paragraphFetched.current) return;
     paragraphFetched.current = true;
     fetchParagraph();
-  }, []);
+  }, [fetchParagraph]);
 
   // Interval hook for paragraph rate limits countdown
   useEffect(() => {
@@ -164,7 +164,7 @@ const MenulisCepatPage = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [paragraphRateLimitCountdown]);
+  }, [paragraphRateLimitCountdown, fetchParagraph]);
 
   // Clean up timers on unmount
   useEffect(() => {

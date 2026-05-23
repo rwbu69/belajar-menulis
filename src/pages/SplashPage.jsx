@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AppContext } from '../context/AppContext';
@@ -23,7 +23,10 @@ const SplashPage = () => {
 
   // Keep input value in sync with context value if updated elsewhere
   useEffect(() => {
-    setApiKeyValue(customApiKey);
+    const timer = setTimeout(() => {
+      setApiKeyValue(customApiKey);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [customApiKey]);
 
   return (

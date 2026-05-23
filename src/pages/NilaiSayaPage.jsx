@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -10,11 +10,21 @@ const NilaiSayaPage = () => {
   const navigate = useNavigate();
   const [expandedIds, setExpandedIds] = useState({});
   const [visible, setVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('akademis');
-  
   const [menulisCepatHistory, setMenulisCepatHistory] = useState(() => {
     const saved = localStorage.getItem('menulisCepat_history');
     return saved ? JSON.parse(saved) : [];
+  });
+
+  const [activeTab, setActiveTab] = useState(() => {
+    const akademisCount = history.filter(h => h.mode === 'akademis' || !h.mode).length;
+    const kreatifCount = history.filter(h => h.mode === 'kreatif').length;
+    const saved = localStorage.getItem('menulisCepat_history');
+    const cepatHistory = saved ? JSON.parse(saved) : [];
+    
+    if (akademisCount > 0) return 'akademis';
+    if (kreatifCount > 0) return 'kreatif';
+    if (cepatHistory.length > 0) return 'menulisCepat';
+    return 'akademis';
   });
 
   const getAchievements = () => {
@@ -266,7 +276,7 @@ const NilaiSayaPage = () => {
         hour: '2-digit',
         minute: '2-digit',
       }) + ' WIB';
-    } catch (e) {
+    } catch {
       return isoString;
     }
   };
@@ -337,7 +347,7 @@ const NilaiSayaPage = () => {
         const totalMatch = trimmed.match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?\s*(?:—|-)?\s*\*?\[?(.*?)\]?\*?$/i);
         if (totalMatch) {
           const totalVal = totalMatch[1];
-          const predikat = totalMatch[2] ? totalMatch[2].replace(/[\*\[\]]/g, '').trim() : '';
+          const predikat = totalMatch[2] ? totalMatch[2].replace(/[*[\]]/g, '').trim() : '';
           const bgGrad = sessionMode === 'kreatif'
             ? 'from-emerald-50 to-emerald-100/50 border-emerald-200'
             : 'from-indigo-50 to-indigo-100/50 border-indigo-200';
@@ -422,16 +432,7 @@ const NilaiSayaPage = () => {
     });
   };
 
-  // Set active tab default based on available history
-  useEffect(() => {
-    if (history.length > 0 || menulisCepatHistory.length > 0) {
-      if (akademisSessions.length === 0 && kreatifSessions.length > 0) {
-        setActiveTab('kreatif');
-      } else if (akademisSessions.length === 0 && kreatifSessions.length === 0 && menulisCepatHistory.length > 0) {
-        setActiveTab('menulisCepat');
-      }
-    }
-  }, [history, menulisCepatHistory.length, akademisSessions.length, kreatifSessions.length]);
+
 
   return (
     <div 

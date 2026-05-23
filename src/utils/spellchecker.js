@@ -261,7 +261,7 @@ export function findSpellingCorrection(wrongWord, dictSet) {
   let minDistance = 999;
   
   // Combine all active dictionary entries to search
-  const allWords = [...STATIC_DICTIONARY, ...onlineWords];
+  const allWords = dictSet ? [...dictSet] : [...STATIC_DICTIONARY, ...onlineWords];
   
   // Filter candidates to ensure extremely fast search times (under 2ms)
   const firstChar = target.charAt(0);

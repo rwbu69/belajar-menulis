@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const Logo = ({ size = 'md', className = '', hideText = false }) => {
   const [imgFailed, setImgFailed] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { AppContext } from '../context/AppContext';
@@ -30,7 +30,7 @@ const WritingPage = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const fetchPrompt = async () => {
+  const fetchPrompt = useCallback(async () => {
     setLoadingPrompt(true);
     setPromptVisible(false);
     setRateLimitCountdown(0);
@@ -52,7 +52,7 @@ const WritingPage = () => {
     } finally {
       setLoadingPrompt(false);
     }
-  };
+  }, [mode, generateWritingPrompt]);
 
   useEffect(() => {
     if (rateLimitCountdown <= 0) return;
@@ -67,14 +67,14 @@ const WritingPage = () => {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [rateLimitCountdown]);
+  }, [rateLimitCountdown, fetchPrompt]);
 
   useEffect(() => {
     // Only fetch if mode changed and it hasn't been fetched yet
     if (promptFetched.current === mode) return;
     promptFetched.current = mode;
     fetchPrompt();
-  }, [mode]);
+  }, [mode, fetchPrompt]);
 
   // Prompt card visibility fade transition trigger
   useEffect(() => {

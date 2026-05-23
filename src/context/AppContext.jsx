@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect } from 'react';
 import { 
   PROMPT_GENERATOR_INSTRUCTIONS, 
   buildEvaluationPrompt,

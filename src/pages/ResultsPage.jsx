@@ -229,7 +229,10 @@ const ResultsPage = () => {
       }, 50);
       return () => clearTimeout(timer);
     } else {
-      setResultsVisible(false);
+      const timer = setTimeout(() => {
+        setResultsVisible(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [loading]);
 
@@ -404,7 +407,7 @@ const ResultsPage = () => {
         const totalMatch = trimmed.match(/total skor:\s*\*?\[?(\d+)\]?\/20\*?\s*(?:—|-)?\s*\*?\[?(.*?)\]?\*?$/i);
         if (totalMatch) {
           const totalVal = totalMatch[1];
-          const predikat = totalMatch[2] ? totalMatch[2].replace(/[\*\[\]]/g, '').trim() : '';
+          const predikat = totalMatch[2] ? totalMatch[2].replace(/[*[\]]/g, '').trim() : '';
           const bgGrad = mode === 'kreatif'
             ? 'from-emerald-50 to-emerald-100/50 border-emerald-200'
             : 'from-indigo-50 to-indigo-100/50 border-indigo-200';
