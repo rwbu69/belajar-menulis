@@ -4,6 +4,7 @@ import {
   buildEvaluationPrompt,
   aiPrompts
 } from '../config/aiPrompts';
+import { loadOnlineDictionary } from '../utils/spellchecker';
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -16,6 +17,10 @@ export class ApiError extends Error {
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
+  useEffect(() => {
+    loadOnlineDictionary();
+  }, []);
+
   const [history, setHistory] = useState(() => {
     const saved = localStorage.getItem('belajar_menulis_history') || localStorage.getItem('jadi_penulis_history');
     try {

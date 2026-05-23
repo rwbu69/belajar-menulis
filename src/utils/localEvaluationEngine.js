@@ -1,4 +1,5 @@
 import { SLANG_DICTIONARY, PREPOSITION_ERRORS } from '../config/fallbackData';
+import { spellcheckText } from './spellchecker';
 
 /**
  * Local offline evaluation engine for writing essays (akademis / kreatif)
@@ -70,6 +71,16 @@ export function runLocalEvaluation(mode, promptText, studentText) {
         type: 'Diksi'
       });
     }
+  });
+
+  // Run custom Indonesian spellcheck
+  const spellcheckCorrections = spellcheckText(studentText);
+  spellcheckCorrections.forEach(c => {
+    corrections.push({
+      wrong: c.wrong,
+      correct: c.correct,
+      type: 'EYD V'
+    });
   });
 
   // Deduplicate corrections

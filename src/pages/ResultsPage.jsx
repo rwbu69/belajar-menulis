@@ -6,6 +6,7 @@ import { runLocalEvaluation, runLocalMenulisCepatEvaluation } from '../utils/loc
 import Logo from '../components/Logo';
 
 const HighlightedText = ({ text, corrections }) => {
+  if (!text) return null;
   if (!corrections || corrections.length === 0) {
     return <p className="text-gray-700 text-sm md:text-base leading-relaxed whitespace-pre-wrap">{text}</p>;
   }
@@ -69,12 +70,15 @@ const HighlightedText = ({ text, corrections }) => {
         let normIdx = normalizedText.indexOf(normalizedWrong);
         while (normIdx !== -1) {
           const originalStart = map[normIdx];
-          const originalEnd = map[normIdx + normalizedWrong.length - 1] + 1;
-          ranges.push({
-            start: originalStart,
-            end: originalEnd,
-            wholeWord: isWholeWord(originalStart, originalEnd)
-          });
+          const endMapIdx = normIdx + normalizedWrong.length - 1;
+          if (originalStart !== undefined && endMapIdx < map.length) {
+            const originalEnd = map[endMapIdx] + 1;
+            ranges.push({
+              start: originalStart,
+              end: originalEnd,
+              wholeWord: isWholeWord(originalStart, originalEnd)
+            });
+          }
           normIdx = normalizedText.indexOf(normalizedWrong, normIdx + 1);
         }
       }
@@ -309,9 +313,23 @@ const ResultsPage = () => {
     if (!feedbackText) return corrections;
     const lines = feedbackText.split('\n');
     lines.forEach(line => {
-      const match = line.match(/\[Koreksi\]:\s*"([^"]+)"\s*->\s*"([^"]+)"/i) || line.match(/\[Koreksi\]:\s*'([^']+)'\s*->\s*'([^']+)'/i);
-      if (match) {
-        corrections.push({ wrong: match[1], correct: match[2] });
+      if (/koreksi/i.test(line)) {
+        // Coba cari yang memakai tanda kutip (bisa menampung frasa)
+        let match = line.match(/(?:koreksi\b[^"'“‘«‹]*?)\s*["'“‘«‹]([^"'”’»›]+)["'”’»›]\s*(?:->|=>|—|->)\s*["'“‘«‹]([^"'”’»›]+)["'”’»›]/i);
+        if (!match) {
+          // Coba cari yang tidak memakai tanda kutip (hanya kata tunggal)
+          match = line.match(/(?:koreksi\b[^a-zA-Z0-9]*?)\s*([a-zA-ZÀ-ÿ'’-]+)\s*(?:->|=>|—|->)\s*([a-zA-ZÀ-ÿ'’-]+)/i);
+        }
+        if (match) {
+          const wrong = match[1].trim();
+          const correct = match[2].trim();
+          if (wrong && correct && wrong !== correct) {
+            // Deduplikasi agar highlight tidak double
+            if (!corrections.some(c => c.wrong.toLowerCase() === wrong.toLowerCase())) {
+              corrections.push({ wrong, correct });
+            }
+          }
+        }
       }
     });
     return corrections;
@@ -519,11 +537,15 @@ const ResultsPage = () => {
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-10 h-10 border-4 border-gray-100 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="text-slate-800 font-medium text-base">
-              Menganalisis tulisan Anda menggunakan standar EYD...
+            <p className="text-slate-800 font-medium text-base text-center">
+              {mode === 'menulisCepat'
+                ? 'Mengkalkulasi kecepatan mengetik dan akurasi tombol Anda...'
+                : 'Menganalisis tulisan Anda menggunakan standar EYD...'}
             </p>
             <p className="text-gray-500 text-xs max-w-md text-center">
-              Proses ini membutuhkan waktu beberapa detik karena AI sedang mengevaluasi berdasarkan 5 kriteria utama bahasa Indonesia.
+              {mode === 'menulisCepat'
+                ? 'Harap tunggu sebentar. Sistem sedang merangkum hasil WPM, tingkat akurasi huruf, kestabilan ritme, serta mempersiapkan analisis kesalahan tombol Anda.'
+                : 'Proses ini membutuhkan waktu beberapa detik karena AI sedang mengevaluasi berdasarkan 5 kriteria utama bahasa Indonesia.'}
             </p>
           </div>
         ) : (
